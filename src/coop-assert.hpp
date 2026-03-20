@@ -10,15 +10,21 @@ constexpr auto coop_detect_error_value() -> auto {
     constexpr auto str020 = comptime::remove_prefix<str010, "virtual ">;
     constexpr auto str030 = comptime::remove_prefix<str020, "const ">;
 #ifdef _MSC_VER
-    // MSVC __FUNCSIG__: "class coop::Async<bool> __cdecl func(...)"
+    // MSVC __FUNCSIG__ resolves type aliases, so coop::Async<T> appears as
+    // coop::CoGenerator<T>. Format: "struct coop::CoGenerator<bool> __cdecl func(...)"
     constexpr auto str040 = comptime::remove_prefix<str030, "class ">;
     constexpr auto str050 = comptime::remove_prefix<str040, "struct ">;
-    constexpr auto marker = comptime::String("coop::Async<");
-    constexpr auto open   = comptime::find<str050, marker>;
+    // Try both the alias and the underlying type
+    constexpr auto marker_async = comptime::String("coop::Async<");
+    constexpr auto marker_cogen = comptime::String("coop::CoGenerator<");
+    constexpr auto open_async = comptime::find<str050, marker_async>;
+    constexpr auto open_cogen = comptime::find<str050, marker_cogen>;
+    constexpr auto open = (open_async != std::string_view::npos) ? open_async : open_cogen;
+    constexpr auto marker_len = (open_async != std::string_view::npos) ? marker_async.size() : marker_cogen.size();
     if constexpr(open == std::string_view::npos) {
         return;
     } else {
-        constexpr auto inner_start = open + marker.size();
+        constexpr auto inner_start = open + marker_len;
         constexpr auto close = comptime::find<str050, "> ", inner_start>;
         if constexpr(close == std::string_view::npos) {
             return;
