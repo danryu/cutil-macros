@@ -45,6 +45,30 @@ constexpr auto detect_error_value() -> auto {
     constexpr auto str010 = comptime::remove_prefix<str000, "static ">;
     constexpr auto str020 = comptime::remove_prefix<str010, "virtual ">;
     constexpr auto str030 = comptime::remove_prefix<str020, "const ">;
+#ifdef _MSC_VER
+    // MSVC __FUNCSIG__ format: "RetType __cdecl FuncName(Args)"
+    // Strip class/struct elaborated type specifiers from return type
+    constexpr auto str040 = comptime::remove_prefix<str030, "class ">;
+    constexpr auto str050 = comptime::remove_prefix<str040, "struct ">;
+    constexpr auto str060 = comptime::remove_prefix<str050, "enum ">;
+    // Find calling convention as separator between return type and function name
+    constexpr auto cdecl_pos = comptime::find<str060, "__cdecl ">;
+    constexpr auto thiscall_pos = comptime::find<str060, "__thiscall ">;
+    constexpr auto sep = (cdecl_pos != std::string_view::npos) ? cdecl_pos : thiscall_pos;
+    if constexpr(sep == std::string_view::npos) {
+        return;
+    } else {
+        constexpr auto ret_with_space = comptime::substr<str060, 0, sep>;
+        constexpr auto ret = comptime::remove_suffix<ret_with_space, " ">;
+        constexpr auto has_star = comptime::find<ret, "*"> != std::string_view::npos;
+        if constexpr(has_star) {
+            return nullptr;
+        } else {
+            constexpr auto bare_ret = comptime::remove_region<ret, '<', '>'>;
+            return type_string_to_type<bare_ret>();
+        }
+    }
+#else
     constexpr auto str040 = comptime::remove_region<str030, '<', '>'>;
     constexpr auto space  = comptime::find<str040, " ">;
     if constexpr(space == std::string_view::npos) {
@@ -58,11 +82,18 @@ constexpr auto detect_error_value() -> auto {
             return type_string_to_type<ret>();
         }
     }
+#endif
 }
 
+#ifdef _MSC_VER
+#define bail(...)                         \
+    CUTIL_MACROS_PRINT_FUNC(__VA_ARGS__); \
+    return detect_error_value<CUTIL_COMPSTR(__FUNCSIG__)>();
+#else
 #define bail(...)                         \
     CUTIL_MACROS_PRINT_FUNC(__VA_ARGS__); \
     return detect_error_value<CUTIL_COMPSTR(std::source_location::current().function_name())>();
+#endif
 
 #define ensure(cond, ...)                                      \
     if(!(cond)) {                                              \
