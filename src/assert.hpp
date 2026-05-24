@@ -24,13 +24,16 @@
 
 #ifdef _MSC_VER
 // MSVC's function signatures aren't parseable the way the generic detector (the
-// non-MSVC branch below) expects. Instead, detect only the void-return case from
-// __FUNCSIG__ so `bail` can `return;` there; every other return type (optional /
-// pointer / bool / numeric) accepts a list-initialized empty value via `return {}`.
-//
-// Caveat: inside a trailing-return `-> std::optional<T>` function MSVC mis-diagnoses
-// `return {}` as a void return. Such translation units should additionally include
-// "macros/optional-return.hpp", which forces the error paths to `return std::nullopt`.
+// non-MSVC branch below) expects, so derive the error value from __FUNCSIG__ directly.
+// MSVC renders the return type first, e.g. "void __cdecl ns::f(...)" or
+// "class std::optional<T> __cdecl ns::f(...)". We special-case the two return types
+// where a list-initialized `return {}` is wrong or ill-formed:
+//   - void                -> `return;`           (`return {}` is ill-formed for void)
+//   - std::optional<...>  -> `return std::nullopt;` (MSVC mis-diagnoses `return {}`
+//                                                    here as a void return)
+// everything else (pointer / bool / numeric / containers) accepts `return {}`.
+// This makes bail type-correct per-function, so a TU may freely mix return types
+// (e.g. string-reader's optional readers alongside its bool helpers).
 template <comptime::String sig>
 constexpr auto msft_sig_is_void_fn() -> bool {
     return comptime::starts_with<sig, "void __cdecl "> ||
@@ -38,14 +41,21 @@ constexpr auto msft_sig_is_void_fn() -> bool {
            comptime::starts_with<sig, "void __fastcall ">;
 }
 
-#define bail(...)                                                         \
-    do {                                                                  \
-        CUTIL_MACROS_PRINT_FUNC(__VA_ARGS__);                             \
-        if constexpr(msft_sig_is_void_fn<CUTIL_COMPSTR(__FUNCSIG__)>()) { \
-            return;                                                       \
-        } else {                                                          \
-            return {};                                                    \
-        }                                                                 \
+template <comptime::String sig>
+constexpr auto msft_sig_returns_optional() -> bool {
+    return comptime::starts_with<sig, "class std::optional<">;
+}
+
+#define bail(...)                                                                      \
+    do {                                                                               \
+        CUTIL_MACROS_PRINT_FUNC(__VA_ARGS__);                                          \
+        if constexpr(msft_sig_is_void_fn<CUTIL_COMPSTR(__FUNCSIG__)>()) {              \
+            return;                                                                    \
+        } else if constexpr(msft_sig_returns_optional<CUTIL_COMPSTR(__FUNCSIG__)>()) { \
+            return std::nullopt;                                                       \
+        } else {                                                                       \
+            return {};                                                                 \
+        }                                                                              \
     } while(0)
 #else
 template <comptime::String str>
