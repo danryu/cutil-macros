@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CUTIL_MACROS_ASSERT_HPP
+#define CUTIL_MACROS_ASSERT_HPP
 #include <optional>
 #include <source_location>
 
@@ -141,3 +142,5 @@ constexpr auto error_value = VoidErrorType{};
 
 #define bail_a(...)         generic_bail(error_act, __VA_ARGS__)
 #define ensure_a(cond, ...) generic_ensure(bail_a, cond, __VA_ARGS__)
+
+#endif // CUTIL_MACROS_ASSERT_HPP

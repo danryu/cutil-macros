@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CUTIL_MACROS_UNWRAP_HPP
+#define CUTIL_MACROS_UNWRAP_HPP
 #include "assert.hpp"
 
 #define generic_unwrap(ensure, const, var, opt, ...) \
@@ -24,3 +25,5 @@
 #define unwrap_a_mut(var, opt, ...)    generic_unwrap_a(ensure_v, /*const*/, var, opt, __VA_ARGS__)
 #define co_unwrap_v(var, opt, ...)     generic_unwrap_v(co_ensure_v, const, var, opt, __VA_ARGS__)
 #define co_unwrap_v_mut(var, opt, ...) generic_unwrap_v(co_ensure_v, /*const*/, var, opt, __VA_ARGS__)
+
+#endif // CUTIL_MACROS_UNWRAP_HPP

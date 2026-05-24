@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CUTIL_MACROS_COOP_ASSERT_HPP
+#define CUTIL_MACROS_COOP_ASSERT_HPP
 #include <source_location>
 
 #include "assert.hpp"
@@ -87,3 +88,5 @@ constexpr auto coop_detect_error_value() -> auto {
     if(!(cond)) {                                                   \
         coop_bail("assertion failed" __VA_OPT__(": ") __VA_ARGS__); \
     }
+
+#endif // CUTIL_MACROS_COOP_ASSERT_HPP

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CUTIL_MACROS_PRINT_HPP
+#define CUTIL_MACROS_PRINT_HPP
 #include <source_location>
 
 #include "util/location-print.hpp"
@@ -16,3 +17,5 @@
 
 #define PRINT(...) CUTIL_GENERIC_PRINT(false, __VA_ARGS__)
 #define WARN(...)  CUTIL_GENERIC_PRINT(true, __VA_ARGS__)
+
+#endif // CUTIL_MACROS_PRINT_HPP

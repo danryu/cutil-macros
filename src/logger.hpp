@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CUTIL_MACROS_LOGGER_HPP
+#define CUTIL_MACROS_LOGGER_HPP
 #include "print.hpp"
 #include "util/logger.hpp"
 
@@ -15,3 +16,5 @@
 #define LOG_WARN(logger, ...)  CUTIL_GENERIC_LOG_PRINT(Loglevel::Warn, logger, __VA_ARGS__)
 #define LOG_DEBUG(logger, ...) CUTIL_GENERIC_LOG_PRINT(Loglevel::Debug, logger, __VA_ARGS__)
 #define LOG_INFO(logger, ...)  CUTIL_GENERIC_LOG_PRINT(Loglevel::Info, logger, __VA_ARGS__)
+
+#endif // CUTIL_MACROS_LOGGER_HPP
