@@ -21,28 +21,75 @@
 //
 // returns automatically detected error value
 //
-// MSVC accepts `return {}` as the correct "empty" value for optional, pointers,
-// bool, and numeric return types. Void functions must use bail_v/ensure_v instead.
 
+#ifdef _MSC_VER
+// MSVC's function signatures aren't parseable the way the generic detector (the
+// non-MSVC branch below) expects. Instead, detect only the void-return case from
+// __FUNCSIG__ so `bail` can `return;` there; every other return type (optional /
+// pointer / bool / numeric) accepts a list-initialized empty value via `return {}`.
+//
+// Caveat: inside a trailing-return `-> std::optional<T>` function MSVC mis-diagnoses
+// `return {}` as a void return. Such translation units should additionally include
+// "macros/optional-return.hpp", which forces the error paths to `return std::nullopt`.
 template <comptime::String sig>
 constexpr auto msft_sig_is_void_fn() -> bool {
-    if constexpr(comptime::starts_with<sig, "void __cdecl ">) {
-        return true;
-    }
-    if constexpr(comptime::starts_with<sig, "void __stdcall ">) {
-        return true;
-    }
-    if constexpr(comptime::starts_with<sig, "void __fastcall ">) {
-        return true;
-    }
-    return false;
+    return comptime::starts_with<sig, "void __cdecl "> ||
+           comptime::starts_with<sig, "void __stdcall "> ||
+           comptime::starts_with<sig, "void __fastcall ">;
 }
 
-#define bail(...)                                                                                \
-    do {                                                                                           \
-        CUTIL_MACROS_PRINT_FUNC(__VA_ARGS__);                                                      \
-        return {};                                                                                   \
+#define bail(...)                                                         \
+    do {                                                                  \
+        CUTIL_MACROS_PRINT_FUNC(__VA_ARGS__);                             \
+        if constexpr(msft_sig_is_void_fn<CUTIL_COMPSTR(__FUNCSIG__)>()) { \
+            return;                                                       \
+        } else {                                                          \
+            return {};                                                    \
+        }                                                                 \
     } while(0)
+#else
+template <comptime::String str>
+constexpr auto type_string_to_type() -> auto {
+    if constexpr(str.str() == "std::unique_ptr" || str.str() == "std::shared_ptr") {
+        return nullptr;
+    } else if constexpr(str.str() == "void") {
+        return;
+    } else if constexpr(str.str() == "bool") {
+        return false;
+    } else if constexpr(str.str() == "int") {
+        return -1;
+    } else if constexpr(str.str() == "std::optional") {
+        return std::nullopt;
+    } else {
+        return;
+    }
+}
+
+template <comptime::String func>
+constexpr auto detect_error_value() -> auto {
+    constexpr auto str000 = func;
+    constexpr auto str010 = comptime::remove_prefix<str000, "static ">;
+    constexpr auto str020 = comptime::remove_prefix<str010, "virtual ">;
+    constexpr auto str030 = comptime::remove_prefix<str020, "const ">;
+    constexpr auto str040 = comptime::remove_region<str030, '<', '>'>;
+    constexpr auto space  = comptime::find<str040, " ">;
+    if constexpr(space == std::string_view::npos) {
+        return;
+    } else {
+        constexpr auto ret  = comptime::substr<str040, 0, space>;
+        constexpr auto name = comptime::substr<str040, space + 1>;
+        if constexpr(ret[-1] == '*' || name[0] == '*') {
+            return nullptr;
+        } else {
+            return type_string_to_type<ret>();
+        }
+    }
+}
+
+#define bail(...)                         \
+    CUTIL_MACROS_PRINT_FUNC(__VA_ARGS__); \
+    return detect_error_value<CUTIL_COMPSTR(std::source_location::current().function_name())>();
+#endif
 
 #define ensure(cond, ...)                                      \
     if(!(cond)) {                                              \
