@@ -4,14 +4,20 @@
 #include "assert.hpp"
 #include "unwrap.hpp"
 
-// MSVC: inside a trailing-return `-> std::optional<T>` function, the generic `bail`'s
-// `return {}` is mis-diagnosed as a void return. A translation unit whose fallible
-// functions return std::optional should include this header (after "macros/unwrap.hpp")
-// to force the error paths to `return std::nullopt`.
+// MSVC-only: inside a trailing-return `-> std::optional<T>` function, the generic
+// `bail`'s `return {}` is mis-diagnosed as a void return. A translation unit whose
+// fallible functions return std::optional should include this header (after
+// "macros/unwrap.hpp") to force the error paths to `return std::nullopt`.
 //
-// Note: this redefines the macros for the whole translation unit, so any function in the
-// same TU that returns a raw pointer must bail manually (`return nullptr`) instead of
-// using ensure/unwrap.
+// On clang/gcc this header is a NO-OP: the upstream macros already detect the return
+// type correctly, so clobbering them would wrongly force `return std::nullopt` into
+// bool/pointer-returning functions sharing the translation unit (e.g. string-reader).
+//
+// Note: even on MSVC this redefines the macros for the whole translation unit, so any
+// function in the same TU that returns a raw pointer must bail manually
+// (`return nullptr`) instead of using ensure/unwrap.
+
+#ifdef _MSC_VER
 
 #undef bail
 #undef ensure
@@ -42,3 +48,5 @@
         return std::nullopt;      \
     }                             \
     auto& var = *var##_o;
+
+#endif // _MSC_VER
