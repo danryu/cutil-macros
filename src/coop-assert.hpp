@@ -39,11 +39,22 @@ constexpr auto msft_sig_is_void_coop() -> bool {
     return msft_sig_is_void_fn<sig>();
 }
 
+// Mirror of msft_sig_returns_optional (in assert.hpp) for coroutines: detect
+// coop::Async<std::optional<...>> / coop::CoGenerator<std::optional<...>> so coop_bail
+// can co_return std::nullopt instead of an ill-diagnosed co_return {}.
+template <comptime::String sig>
+constexpr auto msft_sig_is_optional_coop() -> bool {
+    return comptime::find<sig, "coop::Async<class std::optional<"> != std::string_view::npos ||
+           comptime::find<sig, "coop::CoGenerator<class std::optional<"> != std::string_view::npos;
+}
+
 #define coop_bail(...)                                                                          \
     do {                                                                                          \
         CUTIL_MACROS_PRINT_FUNC(__VA_ARGS__);                                                     \
         if constexpr(msft_sig_is_void_coop<CUTIL_COMPSTR(__FUNCSIG__)>()) {                        \
             co_return;                                                                            \
+        } else if constexpr(msft_sig_is_optional_coop<CUTIL_COMPSTR(__FUNCSIG__)>()) {             \
+            co_return std::nullopt;                                                               \
         } else {                                                                                  \
             co_return {};                                                                           \
         }                                                                                         \

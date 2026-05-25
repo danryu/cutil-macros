@@ -1,1 +1,1 @@
-cutil https://github.com/mojyack/cutil de3cb8456691947df784f90095c0affdff534358
+cutil https://github.com/danryu/cutil.git kdev3
